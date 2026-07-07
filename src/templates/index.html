@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISOC – Maintenance Prédictive Thermique FTTH</title>
+<style>
+  :root {
+    --bg:#0b101b; --panel:#121a29; --panel2:#0e1522; --line:#1e2a40;
+    --txt:#e9eef7; --mut:#8494ab; --accent:#4da3ff;
+    --crit:#ff4d5e; --high:#ff9f43; --warn:#ffd93d; --ok:#3ddc84;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,sans-serif; }
+
+  /* ---------- barre supérieure ---------- */
+  .topbar { display:flex; align-items:center; gap:14px; padding:14px 28px;
+            background:var(--panel); border-bottom:1px solid var(--line);
+            position:sticky; top:0; z-index:10; }
+  .logo { width:34px; height:34px; border-radius:8px; display:grid; place-items:center;
+          background:linear-gradient(135deg,#1c4fd8,#4da3ff); font-weight:800; font-size:.95rem; }
+  .brand b { font-size:1.02rem; display:block; }
+  .brand span { color:var(--mut); font-size:.75rem; }
+  .top-right { margin-left:auto; display:flex; align-items:center; gap:16px; font-size:.78rem; color:var(--mut); }
+  .live { display:flex; align-items:center; gap:6px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity:.35; } }
+  .btn { background:var(--accent); color:#04101f; border:none; padding:8px 16px; border-radius:8px;
+         font-weight:600; font-size:.8rem; cursor:pointer; }
+  .btn:hover { filter:brightness(1.12); }
+  .btn:disabled { opacity:.5; cursor:wait; }
+
+  .wrap { padding:22px 28px; }
+
+  /* ---------- cartes KPI ---------- */
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:20px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 18px;
+         border-left:4px solid var(--line); }
+  .kpi .n { font-size:1.7rem; font-weight:700; }
+  .kpi .l { color:var(--mut); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+  .kpi.crit { border-left-color:var(--crit); } .kpi.crit .n { color:var(--crit); }
+  .kpi.high { border-left-color:var(--high); } .kpi.high .n { color:var(--high); }
+  .kpi.warn { border-left-color:var(--warn); } .kpi.warn .n { color:var(--warn); }
+  .kpi.ok   { border-left-color:var(--ok); }   .kpi.ok .n { color:var(--ok); }
+  .kpi.info { border-left-color:var(--accent); } .kpi.info .n { color:var(--accent); }
+
+  /* ---------- disposition ---------- */
+  .layout { display:grid; grid-template-columns:minmax(560px,1.35fr) minmax(400px,1fr); gap:18px; align-items:start; }
+  @media (max-width:1100px){ .layout { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .panel-h { display:flex; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); }
+  .panel-h h2 { font-size:.9rem; }
+  .panel-h .sub { color:var(--mut); font-size:.72rem; }
+
+  /* ---------- contrôles ---------- */
+  .controls { margin-left:auto; display:flex; gap:8px; }
+  .controls input, .controls select {
+    background:var(--panel2); color:var(--txt); border:1px solid var(--line);
+    border-radius:7px; padding:6px 10px; font-size:.78rem; outline:none; }
+  .controls input:focus { border-color:var(--accent); }
+
+  /* ---------- tableau ---------- */
+  .tbl-scroll { max-height:560px; overflow-y:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:9px 13px; text-align:left; font-size:.83rem; white-space:nowrap; }
+  th { background:var(--panel2); color:var(--mut); text-transform:uppercase; font-size:.66rem;
+       letter-spacing:.06em; position:sticky; top:0; cursor:pointer; user-select:none; }
+  th:hover { color:var(--txt); }
+  tbody tr { cursor:pointer; border-top:1px solid #16203400; }
+  tbody tr:hover td { background:#1a2740; }
+  tbody tr.sel td { background:#22335a; }
+  .badge { padding:3px 9px; border-radius:20px; font-size:.68rem; font-weight:700; letter-spacing:.02em; }
+  .b-CRITIQUE { background:#42101a; color:var(--crit); }
+  .b-ELEVE { background:#402a10; color:var(--high); }
+  .b-SURVEILLANCE { background:#403a10; color:var(--warn); }
+  .b-NORMAL { background:#0f3524; color:var(--ok); }
+  .bar { height:7px; background:#0a0f1a; border-radius:4px; width:96px; display:inline-block;
+         vertical-align:middle; margin-right:8px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--ok),var(--warn),var(--high),var(--crit)); }
+
+  /* ---------- panneau de détail ---------- */
+  .detail-body { padding:16px; }
+  .hint { color:var(--mut); font-size:.83rem; padding:26px 10px; text-align:center; }
+  .site-head { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+  .gauge { position:relative; width:104px; height:104px; flex:none; }
+  .gauge svg { transform:rotate(-90deg); }
+  .gauge .val { position:absolute; inset:0; display:grid; place-items:center; font-size:1.15rem; font-weight:700; }
+  .chips { display:flex; flex-wrap:wrap; gap:7px; }
+  .chip { background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+          padding:6px 10px; font-size:.72rem; color:var(--mut); }
+  .chip b { color:var(--txt); display:block; font-size:.82rem; }
+  .sec { color:var(--mut); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; margin:16px 0 8px; }
+  .chassis { display:grid; grid-template-columns:repeat(8,1fr); gap:5px; }
+  .slot { border-radius:6px; padding:8px 3px; text-align:center; font-size:.64rem;
+          background:var(--panel2); border:1px solid var(--line); color:var(--mut); }
+  .slot .c { display:block; font-size:.85rem; font-weight:700; }
+  .fanline { font-size:.76rem; color:var(--mut); margin-top:8px; }
+  svg text { fill:var(--mut); font-size:9.5px; }
+  .footer { margin-top:18px; color:var(--mut); font-size:.74rem; display:flex; gap:18px; flex-wrap:wrap; }
+  .toast { position:fixed; bottom:20px; right:24px; background:var(--panel); border:1px solid var(--accent);
+           padding:12px 18px; border-radius:10px; font-size:.82rem; display:none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">IS</div>
+  <div class="brand">
+    <b>ISOC &mdash; Supervision Prédictive Thermique</b>
+    <span>Réseau FTTH &middot; Nokia 5520 AMS &middot; Gradient Boosting</span>
+  </div>
+  <div class="top-right">
+    <div class="live"><span class="dot"></span> Modèle actif &middot; horizon {{ horizon }} h</div>
+    <div>Généré : {{ generated_at }}</div>
+    <button class="btn" id="refreshBtn" onclick="refresh()">&#8635; Actualiser</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="kpis">
+    <div class="kpi crit"><div class="n">{{ counts["CRITIQUE"] }}</div><div class="l">Critique</div></div>
+    <div class="kpi high"><div class="n">{{ counts["ELEVE"] }}</div><div class="l">Élevé</div></div>
+    <div class="kpi warn"><div class="n">{{ counts["SURVEILLANCE"] }}</div><div class="l">Surveillance</div></div>
+    <div class="kpi ok"><div class="n">{{ counts["NORMAL"] }}</div><div class="l">Normal</div></div>
+    <div class="kpi info"><div class="n">{{ sites | length }}</div><div class="l">OLT supervisés</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-h">
+        <h2>Classement des OLT par risque de chute</h2>
+        <div class="controls">
+          <input type="search" id="q" placeholder="Rechercher un OLT..." oninput="renderTable()">
+          <select id="lvl" onchange="renderTable()">
+            <option value="">Tous niveaux</option>
+            <option>CRITIQUE</option><option>ELEVE</option>
+            <option>SURVEILLANCE</option><option>NORMAL</option>
+          </select>
+        </div>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('rank')">#</th>
+              <th onclick="sortBy('site')">OLT</th>
+              <th onclick="sortBy('risk_proba')">Risque</th>
+              <th onclick="sortBy('risk_proba')">Prob. chute {{ horizon }}h &#9662;</th>
+              <th onclick="sortBy('fan_alarms_24h')">Fans 24h</th>
+              <th onclick="sortBy('precursor_24h')">Précurs. 24h</th>
+              <th onclick="sortBy('severe_168h')">Graves 7j</th>
+              <th onclick="sortBy('margin_tca_min')">Marge TCA</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>Détail OLT</h2><span class="sub" id="detail-sub"></span></div>
+      <div class="detail-body" id="detail">
+        <div class="hint">Sélectionnez un OLT dans le classement pour afficher sa jauge de risque,
+        la heatmap de son châssis et sa tendance prédictive horaire.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    {% if metrics %}
+    <span>Modèle : HistGradientBoosting</span>
+    <span>ROC-AUC : {{ metrics.roc_auc | round(3) if metrics.roc_auc else "n/a" }}</span>
+    <span>Validation : {{ metrics.validation }}</span>
+    <span>{{ metrics.rows }} heures-OLT &middot; {{ metrics.positives }} chutes observées</span>
+    {% endif %}
+    <span>Source : exports d'alarmes Nokia 5520 AMS</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SITES = {{ sites | tojson }};
+const HISTORY = {{ history | tojson }};
+const HEATMAP = {{ heatmap | tojson }};
+const HORIZON = {{ horizon }};
+let sortKey = "risk_proba", sortAsc = false, selected = null;
+
+const fmt = h => { const d = new Date(h); return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}) + " " + String(d.getHours()).padStart(2,"0") + "h"; };
+const lvlColor = l => ({CRITIQUE:"var(--crit)",ELEVE:"var(--high)",SURVEILLANCE:"var(--warn)",NORMAL:"var(--ok)"}[l]);
+
+function sortBy(k){ if (sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=(k==="site"); } renderTable(); }
+
+function renderTable(){
+  const q = document.getElementById("q").value.toLowerCase();
+  const lvl = document.getElementById("lvl").value;
+  let rows = SITES.filter(s => s.site.toLowerCase().includes(q) && (!lvl || s.risk_level===lvl));
+  rows.sort((a,b) => { const va=a[sortKey]??-1, vb=b[sortKey]??-1;
+    return (va<vb?-1:va>vb?1:0) * (sortAsc?1:-1); });
+  document.getElementById("tbody").innerHTML = rows.map((s,i)=>`
+    <tr class="${s.site===selected?'sel':''}" onclick="showDetail('${s.site}')">
+      <td>${i+1}</td>
+      <td><strong>${s.site}</strong></td>
+      <td><span class="badge b-${s.risk_level}">${s.risk_level}</span></td>
+      <td><span class="bar"><i style="width:${(s.risk_proba*100).toFixed(1)}%"></i></span>${(s.risk_proba*100).toFixed(1)} %</td>
+      <td>${s.fan_alarms_24h|0}</td>
+      <td>${s.precursor_24h|0}</td>
+      <td>${s.severe_168h|0}</td>
+      <td>${s.margin_tca_min==null ? "—" : s.margin_tca_min + " °C"}</td>
+    </tr>`).join("");
+}
+
+function gaugeSvg(p, color){
+  const R=44, C=2*Math.PI*R, on=C*p;
+  return `<div class="gauge">
+    <svg width="104" height="104" viewBox="0 0 104 104">
+      <circle cx="52" cy="52" r="${R}" fill="none" stroke="#0a0f1a" stroke-width="10"/>
+      <circle cx="52" cy="52" r="${R}" fill="none" stroke="${color}" stroke-width="10"
+              stroke-linecap="round" stroke-dasharray="${on} ${C-on}"/>
+    </svg>
+    <div class="val" style="color:${color}">${(p*100).toFixed(1)}%</div>
+  </div>`;
+}
+
+function trendSvg(points){
+  if (!points || points.length < 2) return '<div class="hint">Pas assez d\'historique.</div>';
+  const W=430, H=160, P=30, TH=0.3;
+  const xs = points.map((_,i)=> P + i*(W-2*P)/(points.length-1));
+  const ys = points.map(pt=> H-P - pt.p*(H-2*P));
+  const line = xs.map((x,i)=>`${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const area = `${P},${H-P} ${line} ${W-P},${H-P}`;
+  const yth = H-P - TH*(H-2*P);
+  const grid = [0,.5,1].map(v=>{ const y=H-P - v*(H-2*P);
+    return `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#1e2a40" stroke-dasharray="3,3"/>
+            <text x="2" y="${y+3}">${v*100}%</text>`; }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%">
+    ${grid}
+    <polygon points="${area}" fill="rgba(255,159,67,.12)"/>
+    <line x1="${P}" y1="${yth}" x2="${W-P}" y2="${yth}" stroke="var(--crit)" stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="${W-P-58}" y="${yth-4}" fill="var(--crit)">seuil alerte</text>
+    <polyline points="${line}" fill="none" stroke="var(--high)" stroke-width="2"/>
+    <text x="${P}" y="${H-8}">${points[0].d}</text>
+    <text x="${W-P-52}" y="${H-8}">${points.at(-1).d}</text>
+  </svg>`;
+}
+
+function showDetail(site){
+  selected = site; renderTable();
+  const s = SITES.find(x=>x.site===site);
+  const hm = HEATMAP[site], hist = HISTORY[site];
+  const color = lvlColor(s.risk_level);
+  document.getElementById("detail-sub").textContent = "dernière heure observée : " + fmt(s.hour_ts);
+
+  let html = `<div class="site-head">
+    ${gaugeSvg(s.risk_proba, color)}
+    <div>
+      <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px">${site}
+        <span class="badge b-${s.risk_level}" style="margin-left:6px">${s.risk_level}</span></div>
+      <div class="chips">
+        <div class="chip">Fenêtre de chute estimée<b>${fmt(s.hour_ts)} → ${fmt(s.fall_window_end)}</b></div>
+        <div class="chip">Alarmes 24h<b>${s.total_alarms_24h|0}</b></div>
+        <div class="chip">Marge TCA min<b>${s.margin_tca_min==null?"—":s.margin_tca_min+" °C"}</b></div>
+        <div class="chip">Temp. max capteurs<b>${s.temp_max==null?"—":s.temp_max+" °C"}</b></div>
+      </div>
+    </div>
+  </div>`;
+
+  html += `<div class="sec">Heatmap du châssis — alarmes thermiques par slot LT</div>`;
+  if (hm && hm.slots){
+    const counts = hm.slot_alarms || {};
+    const max = Math.max(1, ...Object.values(counts));
+    html += `<div class="chassis">`;
+    for (let i=1;i<=hm.slots;i++){
+      const c = counts[String(i)]||0, t = c/max;
+      const bg = !c ? "var(--panel2)" : t<0.34 ? "#403a10" : t<0.67 ? "#402a10" : "#42101a";
+      const fg = !c ? "var(--mut)" : t<0.34 ? "var(--warn)" : t<0.67 ? "var(--high)" : "var(--crit)";
+      html += `<div class="slot" style="background:${bg}">LT${i}<span class="c" style="color:${fg}">${c}</span></div>`;
+    }
+    html += `</div><div class="fanline">Ventilation rack :
+      <b style="color:${hm.fan_alarms ? "var(--crit)" : "var(--ok)"}">${hm.fan_alarms}</b> alarme(s) fan (FANALM, MULTIFANFAILURE, FANTRAYMISSING)</div>`;
+  } else {
+    html += `<div class="hint">Aucune information de châssis.</div>`;
+  }
+
+  html += `<div class="sec">Tendance prédictive horaire — probabilité de chute (fenêtre ${HORIZON}h)</div>`;
+  html += trendSvg(hist);
+  document.getElementById("detail").innerHTML = html;
+}
+
+async function refresh(){
+  const btn = document.getElementById("refreshBtn"), toast = document.getElementById("toast");
+  btn.disabled = true; btn.textContent = "Calcul en cours...";
+  try {
+    const r = await fetch("/api/refresh", {method:"POST"});
+    const j = await r.json();
+    toast.textContent = j.message || "Prédictions actualisées";
+    toast.style.display = "block";
+    setTimeout(()=>location.reload(), 1200);
+  } catch(e){
+    toast.textContent = "Erreur : " + e; toast.style.display = "block";
+    btn.disabled = false; btn.textContent = "\u21bb Actualiser";
+  }
+}
+
+renderTable();
+</script>
+</body>
+</html>

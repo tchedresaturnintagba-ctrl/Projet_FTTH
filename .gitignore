@@ -1,0 +1,15 @@
+# Environnement
+.venv/
+__pycache__/
+*.pyc
+
+# Donnees brutes AMS (volumineuses et sensibles - ne pas publier)
+data*.csv
+data/
+*.pkl
+
+# Artefacts generes (reproduisibles via le pipeline)
+models/
+
+# Documents personnels
+*.docx

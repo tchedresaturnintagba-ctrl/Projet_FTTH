@@ -1,0 +1,11 @@
+Thermal Sensors:DICAME-FX8
+,Sensor
+,,
+,,,Id,Temperature [°C],Low TCA Threshold [°C],High TCA Threshold [°C],Low Shutdown Threshold [°C],High Shutdown Threshold [°C]
+,,,R1.S1.LT6.1,68,80,85,90,95
+,,,R1.S1.LT6.2,66,65,70,80,85
+,,,R1.S1.LT6.3,71,100,105,110,115
+,,,R1.S1.LT6.4,81,100,105,110,115
+,,,R1.S1.LT6.5,72,80,85,90,95
+,,,R1.S1.LT6.6,74,80,85,95,100
+,,,Number of entries : 6
