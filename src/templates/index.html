@@ -9,6 +9,13 @@
     --bg:#0b101b; --panel:#121a29; --panel2:#0e1522; --line:#1e2a40;
     --txt:#e9eef7; --mut:#8494ab; --accent:#4da3ff;
     --crit:#ff4d5e; --high:#ff9f43; --warn:#ffd93d; --ok:#3ddc84;
+    --gauge-track:#0a0f1a;
+  }
+  body.light {
+    --bg:#f2f5fa; --panel:#ffffff; --panel2:#eef2f8; --line:#d9e1ee;
+    --txt:#1b2537; --mut:#5c6c85; --accent:#1c6fd8;
+    --crit:#d92639; --high:#d97706; --warn:#b98900; --ok:#0f9d58;
+    --gauge-track:#e3e9f4;
   }
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--txt); font-family:'Segoe UI',system-ui,sans-serif; }
@@ -25,10 +32,11 @@
   .live { display:flex; align-items:center; gap:6px; }
   .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s infinite; }
   @keyframes pulse { 50% { opacity:.35; } }
-  .btn { background:var(--accent); color:#04101f; border:none; padding:8px 16px; border-radius:8px;
+  .btn { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:8px;
          font-weight:600; font-size:.8rem; cursor:pointer; }
   .btn:hover { filter:brightness(1.12); }
   .btn:disabled { opacity:.5; cursor:wait; }
+  .btn.ghost { background:var(--panel2); color:var(--txt); border:1px solid var(--line); }
 
   .wrap { padding:22px 28px; }
 
@@ -69,12 +77,18 @@
   tbody tr { cursor:pointer; border-top:1px solid #16203400; }
   tbody tr:hover td { background:#1a2740; }
   tbody tr.sel td { background:#22335a; }
+  body.light tbody tr:hover td { background:#e8eefb; }
+  body.light tbody tr.sel td { background:#d7e4fb; }
   .badge { padding:3px 9px; border-radius:20px; font-size:.68rem; font-weight:700; letter-spacing:.02em; }
   .b-CRITIQUE { background:#42101a; color:var(--crit); }
   .b-ELEVE { background:#402a10; color:var(--high); }
   .b-SURVEILLANCE { background:#403a10; color:var(--warn); }
   .b-NORMAL { background:#0f3524; color:var(--ok); }
-  .bar { height:7px; background:#0a0f1a; border-radius:4px; width:96px; display:inline-block;
+  body.light .b-CRITIQUE { background:#fde3e6; }
+  body.light .b-ELEVE { background:#fdecd4; }
+  body.light .b-SURVEILLANCE { background:#faf0c8; }
+  body.light .b-NORMAL { background:#d8f5e5; }
+  .bar { height:7px; background:var(--gauge-track); border-radius:4px; width:96px; display:inline-block;
          vertical-align:middle; margin-right:8px; overflow:hidden; }
   .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--ok),var(--warn),var(--high),var(--crit)); }
 
@@ -94,6 +108,12 @@
   .slot { border-radius:6px; padding:8px 3px; text-align:center; font-size:.64rem;
           background:var(--panel2); border:1px solid var(--line); color:var(--mut); }
   .slot .c { display:block; font-size:.85rem; font-weight:700; }
+  .slot.h1 { background:#403a10; } .slot.h1 .c { color:var(--warn); }
+  .slot.h2 { background:#402a10; } .slot.h2 .c { color:var(--high); }
+  .slot.h3 { background:#42101a; } .slot.h3 .c { color:var(--crit); }
+  body.light .slot.h1 { background:#faf0c8; }
+  body.light .slot.h2 { background:#fdecd4; }
+  body.light .slot.h3 { background:#fde3e6; }
   .fanline { font-size:.76rem; color:var(--mut); margin-top:8px; }
   svg text { fill:var(--mut); font-size:9.5px; }
   .footer { margin-top:18px; color:var(--mut); font-size:.74rem; display:flex; gap:18px; flex-wrap:wrap; }
@@ -112,6 +132,7 @@
   <div class="top-right">
     <div class="live"><span class="dot"></span> Modèle actif &middot; horizon {{ horizon }} h</div>
     <div>Généré : {{ generated_at }}</div>
+    <button class="btn ghost" id="themeBtn" onclick="toggleTheme()" title="Basculer clair / sombre">&#9788; Thème</button>
     <button class="btn" id="refreshBtn" onclick="refresh()">&#8635; Actualiser</button>
   </div>
 </div>
@@ -214,7 +235,7 @@ function gaugeSvg(p, color){
   const R=44, C=2*Math.PI*R, on=C*p;
   return `<div class="gauge">
     <svg width="104" height="104" viewBox="0 0 104 104">
-      <circle cx="52" cy="52" r="${R}" fill="none" stroke="#0a0f1a" stroke-width="10"/>
+      <circle cx="52" cy="52" r="${R}" fill="none" stroke="var(--gauge-track)" stroke-width="10"/>
       <circle cx="52" cy="52" r="${R}" fill="none" stroke="${color}" stroke-width="10"
               stroke-linecap="round" stroke-dasharray="${on} ${C-on}"/>
     </svg>
@@ -231,7 +252,7 @@ function trendSvg(points){
   const area = `${P},${H-P} ${line} ${W-P},${H-P}`;
   const yth = H-P - TH*(H-2*P);
   const grid = [0,.5,1].map(v=>{ const y=H-P - v*(H-2*P);
-    return `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="#1e2a40" stroke-dasharray="3,3"/>
+    return `<line x1="${P}" y1="${y}" x2="${W-P}" y2="${y}" stroke="var(--line)" stroke-dasharray="3,3"/>
             <text x="2" y="${y+3}">${v*100}%</text>`; }).join("");
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%">
     ${grid}
@@ -272,9 +293,8 @@ function showDetail(site){
     html += `<div class="chassis">`;
     for (let i=1;i<=hm.slots;i++){
       const c = counts[String(i)]||0, t = c/max;
-      const bg = !c ? "var(--panel2)" : t<0.34 ? "#403a10" : t<0.67 ? "#402a10" : "#42101a";
-      const fg = !c ? "var(--mut)" : t<0.34 ? "var(--warn)" : t<0.67 ? "var(--high)" : "var(--crit)";
-      html += `<div class="slot" style="background:${bg}">LT${i}<span class="c" style="color:${fg}">${c}</span></div>`;
+      const cls = !c ? "" : t<0.34 ? "h1" : t<0.67 ? "h2" : "h3";
+      html += `<div class="slot ${cls}">LT${i}<span class="c">${c}</span></div>`;
     }
     html += `</div><div class="fanline">Ventilation rack :
       <b style="color:${hm.fan_alarms ? "var(--crit)" : "var(--ok)"}">${hm.fan_alarms}</b> alarme(s) fan (FANALM, MULTIFANFAILURE, FANTRAYMISSING)</div>`;
@@ -301,6 +321,13 @@ async function refresh(){
     btn.disabled = false; btn.textContent = "\u21bb Actualiser";
   }
 }
+
+function toggleTheme(){
+  const light = document.body.classList.toggle("light");
+  localStorage.setItem("isoc-theme", light ? "light" : "dark");
+  document.getElementById("themeBtn").innerHTML = light ? "&#9789; Thème" : "&#9788; Thème";
+}
+if (localStorage.getItem("isoc-theme") === "light") toggleTheme();
 
 renderTable();
 </script>
