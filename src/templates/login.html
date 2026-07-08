@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion Supervision Prédictive</title>
+<style>
+  :root {
+    --bg:#0b101b; --panel:#121a29; --panel2:#0e1522; --line:#1e2a40;
+    --txt:#e9eef7; --mut:#8494ab; --accent:#4da3ff; --crit:#ff4d5e; --ok:#3ddc84;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body {
+    min-height:100vh; display:grid; place-items:center;
+    background:radial-gradient(1100px 600px at 70% -10%, #14305c 0%, var(--bg) 55%);
+    color:var(--txt); font-family:'Segoe UI',system-ui,sans-serif;
+  }
+  .card {
+    width:min(400px, 92vw); background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:36px 34px 28px; box-shadow:0 24px 60px rgba(0,0,0,.45);
+  }
+  .brand { display:flex; align-items:center; gap:13px; margin-bottom:26px; }
+  .logo { width:44px; height:44px; border-radius:10px; display:grid; place-items:center;
+          background:linear-gradient(135deg,#1c4fd8,#4da3ff); font-weight:800; font-size:1.1rem; }
+  .brand b { display:block; font-size:1.05rem; }
+  .brand span { color:var(--mut); font-size:.75rem; }
+  h1 { font-size:1.05rem; margin-bottom:4px; }
+  .sub { color:var(--mut); font-size:.8rem; margin-bottom:22px; }
+  label { display:block; color:var(--mut); font-size:.72rem; text-transform:uppercase;
+          letter-spacing:.06em; margin:14px 0 6px; }
+  .field { position:relative; }
+  input {
+    width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--txt);
+    border-radius:9px; padding:11px 42px 11px 13px; font-size:.9rem; outline:none;
+  }
+  input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(77,163,255,.15); }
+  .eye { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+         background:none; border:none; color:var(--mut); cursor:pointer; font-size:1rem; }
+  .error {
+    background:#42101a; border:1px solid var(--crit); color:#ffb9c0;
+    border-radius:9px; padding:10px 13px; font-size:.8rem; margin-bottom:6px;
+  }
+  button.submit {
+    width:100%; margin-top:22px; background:linear-gradient(135deg,#1c4fd8,#4da3ff);
+    color:#fff; border:none; border-radius:9px; padding:12px; font-size:.92rem;
+    font-weight:700; cursor:pointer; letter-spacing:.02em;
+  }
+  button.submit:hover { filter:brightness(1.1); }
+  .foot { margin-top:20px; text-align:center; color:var(--mut); font-size:.7rem; line-height:1.6; }
+  .secure { display:flex; align-items:center; justify-content:center; gap:6px;
+            color:var(--ok); font-size:.72rem; margin-top:12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="logo">IS</div>
+      <div><b>ISOC — Supervision Prédictive Thermique</b>
+        <span>Réseau FTTH · Nokia 5520 AMS</span></div>
+    </div>
+
+    <h1>Connexion</h1>
+    <div class="sub"> </div>
+
+    {% if error %}<div class="error">&#9888; {{ error }}</div>{% endif %}
+
+    <form method="post" autocomplete="off">
+      <label for="username">Identifiant</label>
+      <div class="field">
+        <input id="username" name="username" type="text" required autofocus
+               placeholder="ex : admin" value="{{ username or '' }}">
+      </div>
+
+      <label for="password">Mot de passe</label>
+      <div class="field">
+        <input id="password" name="password" type="password" required placeholder="••••••••">
+        <button class="eye" type="button" onclick="togglePwd()" title="Afficher / masquer">&#128065;</button>
+      </div>
+
+      <button class="submit" type="submit">Se connecter</button>
+    </form>
+
+    <div class="secure">&#128274; Session chiffrée &middot; mots de passe hachés (scrypt)</div>
+    <div class="foot">
+      Système de maintenance prédictive des équipements FTTH par IA<br>
+      Comptes gérés par l'administrateur </code>
+    </div>
+  </div>
+
+<script>
+function togglePwd(){
+  const p = document.getElementById("password");
+  p.type = p.type === "password" ? "text" : "password";
+}
+</script>
+</body>
+</html>

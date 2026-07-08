@@ -32,11 +32,18 @@
   .live { display:flex; align-items:center; gap:6px; }
   .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s infinite; }
   @keyframes pulse { 50% { opacity:.35; } }
+  @keyframes blinkA { 0%,100% { opacity:1; } 50% { opacity:.12; } }
+  .adot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  .adot.CRITIQUE { background:var(--crit); box-shadow:0 0 8px var(--crit); animation:blinkA .55s infinite; }
+  .adot.ELEVE { background:var(--high); box-shadow:0 0 6px var(--high); animation:blinkA 1s infinite; }
+  .adot.SURVEILLANCE { background:var(--warn); box-shadow:0 0 5px var(--warn); animation:blinkA 1.7s infinite; }
+  .kpi.blink .n { animation:blinkA .8s infinite; }
   .btn { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:8px;
          font-weight:600; font-size:.8rem; cursor:pointer; }
   .btn:hover { filter:brightness(1.12); }
   .btn:disabled { opacity:.5; cursor:wait; }
   .btn.ghost { background:var(--panel2); color:var(--txt); border:1px solid var(--line); }
+  .btn.danger { background:var(--crit); color:#fff; animation:blinkA .8s infinite; }
 
   .wrap { padding:22px 28px; }
 
@@ -115,6 +122,12 @@
   body.light .slot.h2 { background:#fdecd4; }
   body.light .slot.h3 { background:#fde3e6; }
   .fanline { font-size:.76rem; color:var(--mut); margin-top:8px; }
+  .tl1tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.68rem; font-weight:700;
+            background:var(--panel2); border:1px solid var(--line); color:var(--mut); margin:0 4px 4px 0; }
+  .tl1tag.sev { border-color:var(--crit); color:var(--crit); }
+  .tl1tag.pre { border-color:var(--warn); color:var(--warn); }
+  .altable { width:100%; border-collapse:collapse; margin-top:4px; }
+  .altable td { padding:5px 8px; font-size:.76rem; border-top:1px solid var(--line); }
   svg text { fill:var(--mut); font-size:9.5px; }
   .footer { margin-top:18px; color:var(--mut); font-size:.74rem; display:flex; gap:18px; flex-wrap:wrap; }
   .toast { position:fixed; bottom:20px; right:24px; background:var(--panel); border:1px solid var(--accent);
@@ -131,18 +144,23 @@
   </div>
   <div class="top-right">
     <div class="live"><span class="dot"></span> Modèle actif &middot; horizon {{ horizon }} h</div>
-    <div>Généré : {{ generated_at }}</div>
+    <div>Généré : <span id="genAt">{{ generated_at }}</span></div>
+    <button class="btn danger" id="stopBtn" onclick="stopAlarm()" style="display:none">&#128263; Arrêter l'alarme</button>
+    <button class="btn ghost" id="testBtn" onclick="testAlert()" title="Simuler un incident critique (son + clignotement)">&#128266; Test</button>
+    <button class="btn ghost" id="soundBtn" onclick="toggleSound()" title="Activer / couper les alertes sonores">&#128277; Son</button>
     <button class="btn ghost" id="themeBtn" onclick="toggleTheme()" title="Basculer clair / sombre">&#9788; Thème</button>
     <button class="btn" id="refreshBtn" onclick="refresh()">&#8635; Actualiser</button>
+    <span style="color:var(--mut);font-size:.78rem">&#128100; {{ current_user }}</span>
+    <a class="btn ghost" href="/logout" title="Fermer la session" style="text-decoration:none">&#10162; Déconnexion</a>
   </div>
 </div>
 
 <div class="wrap">
   <div class="kpis">
-    <div class="kpi crit"><div class="n">{{ counts["CRITIQUE"] }}</div><div class="l">Critique</div></div>
-    <div class="kpi high"><div class="n">{{ counts["ELEVE"] }}</div><div class="l">Élevé</div></div>
-    <div class="kpi warn"><div class="n">{{ counts["SURVEILLANCE"] }}</div><div class="l">Surveillance</div></div>
-    <div class="kpi ok"><div class="n">{{ counts["NORMAL"] }}</div><div class="l">Normal</div></div>
+    <div class="kpi crit" id="kpi-CRITIQUE"><div class="n">{{ counts["CRITIQUE"] }}</div><div class="l">Critique</div></div>
+    <div class="kpi high" id="kpi-ELEVE"><div class="n">{{ counts["ELEVE"] }}</div><div class="l">Élevé</div></div>
+    <div class="kpi warn" id="kpi-SURVEILLANCE"><div class="n">{{ counts["SURVEILLANCE"] }}</div><div class="l">Surveillance</div></div>
+    <div class="kpi ok" id="kpi-NORMAL"><div class="n">{{ counts["NORMAL"] }}</div><div class="l">Normal</div></div>
     <div class="kpi info"><div class="n">{{ sites | length }}</div><div class="l">OLT supervisés</div></div>
   </div>
 
@@ -167,6 +185,7 @@
               <th onclick="sortBy('site')">OLT</th>
               <th onclick="sortBy('risk_proba')">Risque</th>
               <th onclick="sortBy('risk_proba')">Prob. chute {{ horizon }}h &#9662;</th>
+              <th>Type d'alarme</th>
               <th onclick="sortBy('fan_alarms_24h')">Fans 24h</th>
               <th onclick="sortBy('precursor_24h')">Précurs. 24h</th>
               <th onclick="sortBy('severe_168h')">Graves 7j</th>
@@ -204,6 +223,7 @@
 const SITES = {{ sites | tojson }};
 const HISTORY = {{ history | tojson }};
 const HEATMAP = {{ heatmap | tojson }};
+const ALARM_TYPES = {{ alarm_types | tojson }};
 const HORIZON = {{ horizon }};
 let sortKey = "risk_proba", sortAsc = false, selected = null;
 
@@ -211,6 +231,16 @@ const fmt = h => { const d = new Date(h); return d.toLocaleDateString("fr-FR",{d
 const lvlColor = l => ({CRITIQUE:"var(--crit)",ELEVE:"var(--high)",SURVEILLANCE:"var(--warn)",NORMAL:"var(--ok)"}[l]);
 
 function sortBy(k){ if (sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=(k==="site"); } renderTable(); }
+
+function alarmTypeCell(site){
+  const types = ALARM_TYPES[site];
+  if (!types || !types.length) return '<span style="color:var(--mut)">\u2014</span>';
+  const main = types[0];
+  const extra = types.length > 1 ? ` <span style="color:var(--mut);font-size:.68rem">+${types.length-1}</span>` : "";
+  const cls = main.severe ? "sev" : "pre";
+  const title = types.map(t=>`${t.tl1} \u00d7${t.count} (dernier : ${t.last})`).join("\n");
+  return `<span class="tl1tag ${cls}" title="${title}">${main.tl1} \u00d7${main.count}</span>${extra}`;
+}
 
 function renderTable(){
   const q = document.getElementById("q").value.toLowerCase();
@@ -221,9 +251,10 @@ function renderTable(){
   document.getElementById("tbody").innerHTML = rows.map((s,i)=>`
     <tr class="${s.site===selected?'sel':''}" onclick="showDetail('${s.site}')">
       <td>${i+1}</td>
-      <td><strong>${s.site}</strong></td>
+      <td><strong>${s.risk_level!=="NORMAL" ? `<span class="adot ${s.risk_level}"></span>` : ""}${s.site}</strong></td>
       <td><span class="badge b-${s.risk_level}">${s.risk_level}</span></td>
       <td><span class="bar"><i style="width:${(s.risk_proba*100).toFixed(1)}%"></i></span>${(s.risk_proba*100).toFixed(1)} %</td>
+      <td>${alarmTypeCell(s.site)}</td>
       <td>${s.fan_alarms_24h|0}</td>
       <td>${s.precursor_24h|0}</td>
       <td>${s.severe_168h|0}</td>
@@ -302,6 +333,20 @@ function showDetail(site){
     html += `<div class="hint">Aucune information de châssis.</div>`;
   }
 
+  html += `<div class="sec">Types d'alarmes thermiques observées</div>`;
+  const types = ALARM_TYPES[site];
+  if (types && types.length){
+    html += `<table class="altable">` + types.map(t=>`
+      <tr>
+        <td><span class="tl1tag ${t.severe?'sev':'pre'}">${t.tl1}</span></td>
+        <td>${t.problem}</td>
+        <td style="text-align:right"><b>\u00d7${t.count}</b></td>
+        <td style="color:var(--mut)">dernier : ${t.last}</td>
+      </tr>`).join("") + `</table>`;
+  } else {
+    html += `<div class="fanline">Aucune alarme thermique enregistr\u00e9e sur cet OLT.</div>`;
+  }
+
   html += `<div class="sec">Tendance prédictive horaire — probabilité de chute (fenêtre ${HORIZON}h)</div>`;
   html += trendSvg(hist);
   document.getElementById("detail").innerHTML = html;
@@ -329,6 +374,149 @@ function toggleTheme(){
 }
 if (localStorage.getItem("isoc-theme") === "light") toggleTheme();
 
+/* ---------------- alertes clignotantes + sonores ---------------- */
+const RANK = {NORMAL:0, SURVEILLANCE:1, ELEVE:2, CRITIQUE:3};
+let soundOn = false, audioCtx = null;
+let lastLevels = Object.fromEntries(SITES.map(s=>[s.site, s.risk_level]));
+
+function beep(freq, dur, delay){
+  const t = audioCtx.currentTime + delay;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = "sine"; o.frequency.value = freq;
+  o.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(.35, t + .02);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.start(t); o.stop(t + dur + .05);
+}
+function playAlert(level){
+  if (!soundOn || !audioCtx) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (level === "CRITIQUE")      [0,.25,.5,.75].forEach(d=>beep(950,.18,d)); // 4 bips aigus
+  else if (level === "ELEVE")    [0,.35].forEach(d=>beep(700,.2,d));         // 2 bips moyens
+  else if (level === "SURVEILLANCE") beep(480,.35,0);                        // 1 bip grave
+}
+function worstActiveLevel(sites){
+  let worst = null;
+  for (const s of sites){
+    if (s.risk_level !== "NORMAL" && (!worst || RANK[s.risk_level] > RANK[worst]))
+      worst = s.risk_level;
+  }
+  return worst;
+}
+
+/* --- sonnerie continue : sonne jusqu'a l'arret manuel --- */
+let alarmTimer = null, acked = false;
+function startAlarm(level){
+  if (!soundOn || !audioCtx) return;
+  acked = false;
+  if (alarmTimer) clearInterval(alarmTimer);
+  playAlert(level);
+  alarmTimer = setInterval(()=>playAlert(level), 2500); // re-sonne toutes les 2,5 s
+  document.getElementById("stopBtn").style.display = "inline-block";
+}
+function stopAlarm(){
+  if (alarmTimer) clearInterval(alarmTimer);
+  alarmTimer = null;
+  acked = true; // ne re-sonnera que sur une NOUVELLE escalade
+  document.getElementById("stopBtn").style.display = "none";
+  showToast("Alarme acquitt\u00e9e \u2014 re-sonnera \u00e0 la prochaine escalade");
+}
+
+function toggleSound(){
+  soundOn = !soundOn;
+  if (soundOn && !audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  document.getElementById("soundBtn").innerHTML = soundOn ? "&#128276; Son ON" : "&#128277; Son";
+  localStorage.setItem("isoc-sound", soundOn ? "on" : "off");
+  if (soundOn){
+    const worst = worstActiveLevel(SITES);
+    if (worst){ startAlarm(worst); showToast(`\u26a0 Niveau actif le plus haut : ${worst}`); }
+    else beep(480,.2,0); // bip de confirmation si tout est normal
+  } else {
+    stopAlarm();
+  }
+}
+
+function showToast(msg){
+  const toast = document.getElementById("toast");
+  toast.textContent = msg; toast.style.display = "block";
+  setTimeout(()=>{ toast.style.display = "none"; }, 6000);
+}
+
+function testAlert(){
+  // activer l'audio si necessaire (le clic sur ce bouton est un geste utilisateur)
+  if (!soundOn){
+    soundOn = true;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    document.getElementById("soundBtn").innerHTML = "&#128276; Son ON";
+    localStorage.setItem("isoc-sound", "on");
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+
+  // simulation visuelle : le 1er OLT passe en CRITIQUE pendant 12 secondes
+  const s = SITES[0];
+  const backup = { level: s.risk_level, proba: s.risk_proba };
+  s.risk_level = "CRITIQUE"; s.risk_proba = 0.98;
+  renderTable(); updateKpis(SITES); showDetail(s.site);
+  showToast(`\u26a0 TEST : ${s.site} passe en CRITIQUE (98.0 %)`);
+
+  // demonstration sonore des 3 niveaux puis SONNERIE CONTINUE jusqu'a l'arret manuel
+  playAlert("SURVEILLANCE");
+  setTimeout(()=>playAlert("ELEVE"), 1500);
+  setTimeout(()=>startAlarm("CRITIQUE"), 3200);
+
+  setTimeout(()=>{
+    s.risk_level = backup.level; s.risk_proba = backup.proba;
+    renderTable(); updateKpis(SITES); showDetail(s.site);
+    showToast("Fin du test \u2014 retour \u00e0 l'\u00e9tat r\u00e9el");
+  }, 12000);
+}
+
+function updateKpis(sites){
+  for (const lvl of ["CRITIQUE","ELEVE","SURVEILLANCE","NORMAL"]){
+    const n = sites.filter(s=>s.risk_level===lvl).length;
+    const el = document.getElementById("kpi-"+lvl);
+    if (!el) continue;
+    el.querySelector(".n").textContent = n;
+    el.classList.toggle("blink", lvl !== "NORMAL" && n > 0);
+  }
+}
+
+async function poll(){
+  try {
+    const r = await fetch("/api/predictions");
+    const j = await r.json();
+    const sites = j.sites || [];
+    if (!sites.length) return;
+
+    // detection d'escalade de niveau (nouvelle alerte)
+    let worst = null;
+    for (const s of sites){
+      const prev = lastLevels[s.site] ?? "NORMAL";
+      if (RANK[s.risk_level] > RANK[prev] && s.risk_level !== "NORMAL"){
+        if (!worst || RANK[s.risk_level] > RANK[worst.risk_level]) worst = s;
+      }
+      lastLevels[s.site] = s.risk_level;
+    }
+
+    SITES.length = 0; SITES.push(...sites);
+    renderTable(); updateKpis(sites);
+    document.getElementById("genAt").textContent = j.generated_at || "";
+    if (selected && SITES.find(x=>x.site===selected)) showDetail(selected);
+
+    if (worst){
+      showToast(`\u26a0 ${worst.site} passe en ${worst.risk_level} (${(worst.risk_proba*100).toFixed(1)} %)`);
+      startAlarm(worst.risk_level); // sonne en continu jusqu'a l'acquittement
+    } else {
+      // alerte toujours active, non acquittee et pas deja en train de sonner
+      const active = worstActiveLevel(sites);
+      if (active && !acked && !alarmTimer) startAlarm(active);
+    }
+  } catch(e){ /* serveur indisponible : re-essai au prochain cycle */ }
+}
+setInterval(poll, 60000); // surveillance toutes les 60 s
+
+updateKpis(SITES);
 renderTable();
 </script>
 </body>

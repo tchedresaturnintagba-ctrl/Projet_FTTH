@@ -69,6 +69,24 @@ def build_history(dataset_path: str | Path, model_path: str | Path,
     return history
 
 
+def build_alarm_types(alarms_path: str | Path) -> dict:
+    """Types d'alarmes thermiques par site : occurrences et derniere date."""
+    al = pd.read_pickle(alarms_path)
+    th = al[al["is_thermal"]]
+    out: dict[str, list] = {}
+    for (site, tl1), g in th.groupby(["site", "tl1"]):
+        out.setdefault(site, []).append({
+            "tl1": tl1,
+            "count": int(len(g)),
+            "last": g["ts"].max().strftime("%d/%m/%Y %H:%M"),
+            "severe": bool(g["is_severe"].iloc[0]),
+            "problem": str(g["Specific Problem"].iloc[-1]),
+        })
+    for site in out:
+        out[site].sort(key=lambda x: (x["severe"], x["count"]), reverse=True)
+    return out
+
+
 def build_heatmap(alarms_path: str | Path) -> dict:
     """Heatmap chassis : alarmes thermiques par slot LT + alarmes fans rack."""
     al = pd.read_pickle(alarms_path)
@@ -113,6 +131,7 @@ def main() -> None:
     scores, horizon = score_sites(args.dataset, args.model)
     history = build_history(args.dataset, args.model, days=args.history_days)
     heatmap = build_heatmap(args.alarms)
+    alarm_types = build_alarm_types(args.alarms)
 
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -120,6 +139,7 @@ def main() -> None:
         "sites": json.loads(scores.to_json(orient="records", date_format="iso")),
         "history": history,
         "heatmap": heatmap,
+        "alarm_types": alarm_types,
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(payload))
